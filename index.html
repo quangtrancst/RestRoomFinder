@@ -1,63 +1,88 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Nearest Restrooms Map</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
-    <script>
-        function initMap() {
-            // Vị trí người dùng (giả lập)
-            const userLocation = { lat: 10.775, lng: 106.700 };
-
-            // Khởi tạo bản đồ với vị trí người dùng ở trung tâm
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 15,
-                center: userLocation,
-            });
-
-            // Thêm marker cho vị trí người dùng
-            new google.maps.Marker({
-                position: userLocation,
-                map,
-                title: "Your Location",
-                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-            });
-
-            // Danh sách vị trí nhà vệ sinh công cộng giả lập
-            const restrooms = [
-                { lat: 10.775, lng: 106.700, address: "123 A St", description: "Clean and spacious", distance: 0.0 },
-                { lat: 10.776, lng: 106.701, address: "456 B St", description: "Recently renovated", distance: 0.16 },
-                { lat: 10.774, lng: 106.702, address: "789 C St", description: "Wheelchair accessible", distance: 0.25 },
-                { lat: 10.773, lng: 106.703, address: "101 D St", description: "Family-friendly", distance: 0.4 },
-                { lat: 10.778, lng: 106.704, address: "202 E St", description: "Well-maintained", distance: 0.55 },
-                { lat: 10.779, lng: 106.705, address: "303 F St", description: "Open 24/7", distance: 0.7 },
-                { lat: 10.772, lng: 106.706, address: "404 G St", description: "Close to shopping areas", distance: 0.74 },
-                { lat: 10.771, lng: 106.707, address: "505 H St", description: "Child-friendly", distance: 0.88 },
-            ];
-
-            // Thêm các marker cho các nhà vệ sinh
-            restrooms.forEach((restroom) => {
-                const marker = new google.maps.Marker({
-                    position: { lat: restroom.lat, lng: restroom.lng },
-                    map,
-                    title: restroom.address,
-                });
-
-                // Thêm thông tin cho từng marker
-                const infoWindow = new google.maps.InfoWindow({
-                    content: `<h3>${restroom.address}</h3>
-                              <p>${restroom.description}</p>
-                              <p>Distance: ${restroom.distance} km</p>`,
-                });
-
-                marker.addListener("click", () => {
-                    infoWindow.open(map, marker);
-                });
-            });
-        }
-    </script>
-</head>
-<body onload="initMap()">
+  <head>
+    <title>Nearest Restrooms</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+      #map {
+        height: 600px;
+      }
+      #searchButton {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
     <h1>Nearest Restrooms</h1>
-    <div id="map" style="height: 500px; width: 100%;"></div>
-</body>
+    <div id="map"></div>
+    <button id="searchButton">Tìm kiếm</button>
+
+    <script>
+      // Tạo bản đồ và đặt vị trí trung tâm là tọa độ của người dùng
+      const userLocation = [10.775, 106.7];
+      const map = L.map("map").setView(userLocation, 15);
+
+      // Sử dụng tile miễn phí của OpenStreetMap
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      // Thêm marker cho vị trí người dùng
+      let userMarker = L.marker(userLocation, { color: "red" })
+        .addTo(map)
+        .bindPopup("<b>Your Location</b>")
+        .openPopup();
+
+      // Mảng lưu trữ các marker nhà vệ sinh
+      let restroomMarkers = [];
+
+      // Cập nhật vị trí người dùng khi nhấp vào bản đồ
+      map.on("click", function (e) {
+        if (userMarker) {
+          map.removeLayer(userMarker);
+        }
+        userMarker = L.marker(e.latlng, { color: "red" })
+          .addTo(map)
+          .bindPopup("<b>Your Location</b>")
+          .openPopup();
+        userLocation[0] = e.latlng.lat;
+        userLocation[1] = e.latlng.lng;
+      });
+
+      // Xử lý sự kiện khi nhấn nút tìm kiếm
+      document
+        .getElementById("searchButton")
+        .addEventListener("click", function () {
+          // Xóa các marker cũ
+          restroomMarkers.forEach((marker) => map.removeLayer(marker));
+          restroomMarkers = [];
+
+          // Gửi yêu cầu đến API để tìm nhà vệ sinh gần nhất
+          fetch(
+            `http://localhost:5000/find_nearby_restrooms?lat=${userLocation[0]}&lon=${userLocation[1]}&radius=1.0`
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              console.log(data); // Log dữ liệu trả về từ API
+              data.forEach((restroom) => {
+                const marker = L.marker([
+                  restroom.coordinates[0],
+                  restroom.coordinates[1],
+                ])
+                  .addTo(map)
+                  .bindPopup(
+                    `<b>${restroom.address}</b><br>${
+                      restroom.description
+                    }<br>Distance: ${restroom.distance_km.toFixed(2)} km`
+                  );
+                restroomMarkers.push(marker);
+              });
+            })
+            .catch((error) => console.error("Error:", error));
+        });
+    </script>
+  </body>
 </html>
