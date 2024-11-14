@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Nearest Restrooms Map</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+    <script>
+        function initMap() {
+            // Vị trí người dùng (giả lập)
+            const userLocation = { lat: 10.775, lng: 106.700 };
+
+            // Khởi tạo bản đồ với vị trí người dùng ở trung tâm
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: userLocation,
+            });
+
+            // Thêm marker cho vị trí người dùng
+            new google.maps.Marker({
+                position: userLocation,
+                map,
+                title: "Your Location",
+                icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+            });
+
+            // Danh sách vị trí nhà vệ sinh công cộng giả lập
+            const restrooms = [
+                { lat: 10.775, lng: 106.700, address: "123 A St", description: "Clean and spacious", distance: 0.0 },
+                { lat: 10.776, lng: 106.701, address: "456 B St", description: "Recently renovated", distance: 0.16 },
+                { lat: 10.774, lng: 106.702, address: "789 C St", description: "Wheelchair accessible", distance: 0.25 },
+                { lat: 10.773, lng: 106.703, address: "101 D St", description: "Family-friendly", distance: 0.4 },
+                { lat: 10.778, lng: 106.704, address: "202 E St", description: "Well-maintained", distance: 0.55 },
+                { lat: 10.779, lng: 106.705, address: "303 F St", description: "Open 24/7", distance: 0.7 },
+                { lat: 10.772, lng: 106.706, address: "404 G St", description: "Close to shopping areas", distance: 0.74 },
+                { lat: 10.771, lng: 106.707, address: "505 H St", description: "Child-friendly", distance: 0.88 },
+            ];
+
+            // Thêm các marker cho các nhà vệ sinh
+            restrooms.forEach((restroom) => {
+                const marker = new google.maps.Marker({
+                    position: { lat: restroom.lat, lng: restroom.lng },
+                    map,
+                    title: restroom.address,
+                });
+
+                // Thêm thông tin cho từng marker
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `<h3>${restroom.address}</h3>
+                              <p>${restroom.description}</p>
+                              <p>Distance: ${restroom.distance} km</p>`,
+                });
+
+                marker.addListener("click", () => {
+                    infoWindow.open(map, marker);
+                });
+            });
+        }
+    </script>
+</head>
+<body onload="initMap()">
+    <h1>Nearest Restrooms</h1>
+    <div id="map" style="height: 500px; width: 100%;"></div>
+</body>
+</html>
