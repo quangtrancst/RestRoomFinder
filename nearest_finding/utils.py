@@ -1,10 +1,6 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import math
+import random
 from typing import List, Dict, Tuple
-
-app = Flask(__name__)
-CORS(app)  # Thêm dòng này để cấu hình CORS
 
 # Công thức Haversine để tính khoảng cách giữa hai tọa độ (tính bằng km)
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -15,6 +11,29 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
          math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+
+# Hàm tạo các điểm ngẫu nhiên quanh một tọa độ trung tâm
+def generate_random_points(center_lat: float, center_lon: float, num_points: int, radius: float) -> List[Dict[str, float]]:
+    points = []
+    for _ in range(num_points):
+        # Tạo ngẫu nhiên một khoảng cách và góc
+        distance = random.uniform(0, radius)
+        angle = random.uniform(0, 2 * math.pi)
+        
+        # Tính toán tọa độ mới
+        delta_lat = distance / 111  # 1 độ vĩ tuyến ~ 111 km
+        delta_lon = distance / (111 * math.cos(math.radians(center_lat)))
+        
+        new_lat = center_lat + (distance / 111) * math.cos(angle)
+        new_lon = center_lon + (distance / (111 * math.cos(math.radians(center_lat)))) * math.sin(angle)
+        
+        points.append({
+            "lat": new_lat,
+            "lon": new_lon,
+            "address": f"Random Address {len(points) + 1}",
+            "description": "Randomly generated restroom"
+        })
+    return points
 
 # Các vị trí nhà vệ sinh mẫu với tọa độ, địa chỉ và mô tả
 restroom_locations = [
@@ -30,12 +49,20 @@ restroom_locations = [
     {"lat": 10.781, "lon": 106.709, "address": "707 J St", "description": "Good for quick stops"},
 ]
 
+# Thêm các điểm ngẫu nhiên quanh các quận Bình Tân, Bình Thạnh và Thủ Đức
+binh_tan_points = generate_random_points(10.762622, 106.656123, 3, 5)  # 5 km radius
+binh_thanh_points = generate_random_points(10.8142, 106.7070, 10, 5)  # 5 km radius
+thu_duc_points = generate_random_points(10.8491, 106.7537, 15, 5)  # 5 km radius
+
+restroom_locations.extend(binh_tan_points)
+restroom_locations.extend(binh_thanh_points)
+restroom_locations.extend(thu_duc_points)
+
 # Hàm tìm nhà vệ sinh gần trong bán kính cho trước (tính bằng km)
-def find_nearby_restrooms(user_lat: float, user_lon: float, radius: float = 1.0) -> List[Dict[str, Tuple]]:
+def find_nearby_restrooms(user_lat: float, user_lon: float, radius: float = 2.0) -> List[Dict[str, Tuple]]:
     nearby_restrooms = []
     for restroom in restroom_locations:
         distance = haversine(user_lat, user_lon, restroom["lat"], restroom["lon"])
-        print(f"Distance to {restroom['address']}: {distance} km")  # Log khoảng cách
         if distance <= radius:
             restroom_info = {
                 "coordinates": (restroom["lat"], restroom["lon"]),
@@ -44,16 +71,15 @@ def find_nearby_restrooms(user_lat: float, user_lon: float, radius: float = 1.0)
                 "distance_km": round(distance, 2)
             }
             nearby_restrooms.append(restroom_info)
-    print(f"Nearby restrooms: {nearby_restrooms}")  # Log các nhà vệ sinh gần
+    
+    # Sắp xếp các điểm theo khoảng cách
+    nearby_restrooms.sort(key=lambda x: x["distance_km"])
+    
+    if not nearby_restrooms:
+        print("Bạn đang quá xa với các nhà vệ sinh công cộng.")
+    else:
+        print("Nearby restrooms:")
+        for restroom in nearby_restrooms:
+            print(f"- {restroom['address']} ({restroom['distance_km']} km): {restroom['description']}")
+    
     return nearby_restrooms
-
-@app.route('/find_nearby_restrooms', methods=['GET'])
-def get_nearby_restrooms():
-    user_lat = float(request.args.get('lat'))
-    user_lon = float(request.args.get('lon'))
-    radius = float(request.args.get('radius', 1.0))
-    result = find_nearby_restrooms(user_lat, user_lon, radius)
-    return jsonify(result)
-
-if __name__ == '__main__':
-    app.run(debug=True)
